@@ -1,0 +1,119 @@
+services:
+  fmbot_backend:
+    container_name: fm-bot-backend
+    build:
+      context: .
+      dockerfile: ./compose/prod/Dockerfile
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/home/app/backend
+    ports:
+      - 8001:8000
+    env_file:
+      - ./env_vars/prod/.env
+    depends_on:
+      - fmbot_db
+      - fmbot_redis
+    networks:
+      - fmbot_network
+
+  fmbot_db:
+    image: postgres:15
+    container_name: fm-bot-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./env_vars/prod/.db
+    ports:
+      - 5433:5432
+    networks:
+      - fmbot_network
+
+  fmbot_redis:
+    image: redis:7.2
+    container_name: fm-bot-redis
+    privileged: true
+    volumes:
+      - ./compose/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - fmbot_network
+
+  fmbot_celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/prod/Dockerfile
+    container_name: fmbot-celery-worker
+    env_file:
+      - ./env_vars/prod/.env
+    command: celery -A config worker --loglevel DEBUG -P threads
+    depends_on:
+      - fmbot_redis
+      - fmbot_db
+    networks:
+      - fmbot_network
+
+  fmbot_celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/prod/Dockerfile
+    env_file:
+      - ./env_vars/prod/.env
+    command: celery -A config beat --pidfile= --loglevel DEBUG
+    depends_on:
+      - fmbot_redis
+      - fmbot_db
+    networks:
+      - fmbot_network
+
+  # fmbot_set_webhook:
+  #   container_name: fmbot-set-webhook
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/prod/Dockerfile
+  #   command: python3 manage.py set_webhook
+  #   env_file:
+  #     - ./env_vars/prod/.env
+  #   depends_on:
+  #     - fmbot_backend
+  #     - fmbot_db
+  #     - fmbot_redis
+  #   networks:
+  #     - fmbot_network
+
+  # fmbot_start_userbot:
+  #   container_name: fmbot-start-userbot
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/prod/Dockerfile
+  #   command: python3 manage.py start_userbot
+  #   env_file:
+  #     - ./env_vars/prod/.env
+  #   depends_on:
+  #     - fmbot_backend
+  #     - fmbot_db
+  #     - fmbot_redis
+  #   networks:
+  #     - fmbot_network
+
+  fmbot_start_telethon_client:
+    container_name: fmbot-start-telethon-client
+    build:
+      context: .
+      dockerfile: ./compose/prod/Dockerfile
+    command: python3 manage.py start_telethon_client
+    volumes:
+      - .:/usr/src/backend/
+    env_file:
+      - ./env_vars/prod/.env
+    depends_on:
+      - fmbot_backend
+      - fmbot_db
+      - fmbot_redis
+    networks:
+      - fmbot_network
+
+volumes:
+  postgres_data:
+networks:
+  fmbot_network:

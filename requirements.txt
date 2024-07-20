@@ -1,0 +1,16 @@
+celery
+channels
+Django
+django-cors-headers
+django-dotenv
+django-import-export
+django-redis
+django-rosetta
+gunicorn
+hiredis
+pillow
+psycopg2-binary
+python-telegram-bot
+redis
+requests
+TgCrypto
